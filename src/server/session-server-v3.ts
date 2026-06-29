@@ -14,6 +14,7 @@ import { IPty } from 'node-pty';
 import { EventEmitter } from 'events';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 
 interface SessionInfo {
   id: string;
@@ -321,7 +322,7 @@ export class PersistentSessionServer extends EventEmitter {
     });
 
     // Write command
-    session.shell.write(currentCommand.command + '\n');
+    this.writeCommandToShell(session, currentCommand.command);
 
     // Set up timeout - return quickly with whatever output we have
     const timeout = setTimeout(() => {
@@ -353,6 +354,44 @@ export class PersistentSessionServer extends EventEmitter {
 
     // Store timeout so we can clear it
     (session as any).currentTimeout = timeout;
+  }
+
+  /**
+   * Write a command into the PTY.
+   *
+   * Multi-line or long commands are written via a temp file + `source` rather
+   * than typed straight into the interactive line editor (readline). Large or
+   * multi-line input typed into readline gets its byte ordering corrupted by the
+   * echo/redraw race (the `ESC[1@` insert-character thrash), and on bash < 4.4
+   * (e.g. macOS bash 3.2) bracketed-paste mode isn't available to mitigate it.
+   * Sourcing a temp file sends only a short `source <file>` line through
+   * readline, so nothing mangles, while cwd/env changes still persist in the
+   * session exactly like a typed command. Short single-line commands are written
+   * directly (unchanged).
+   */
+  private writeCommandToShell(session: SessionInfo, command: string): void {
+    const needsTempFile =
+      process.platform !== 'win32' &&
+      (command.includes('\n') || command.length > 100);
+
+    if (!needsTempFile) {
+      session.shell.write(command + '\n');
+      return;
+    }
+
+    try {
+      const tmpFile = path.join(
+        os.tmpdir(),
+        `tsmcp-cmd-${Date.now()}-${Math.random().toString(36).slice(2)}.sh`
+      );
+      fs.writeFileSync(tmpFile, command + '\n', 'utf8');
+      session.shell.write(`source ${tmpFile}\n`);
+      // Best-effort cleanup once the shell has had time to read the file.
+      setTimeout(() => { fs.promises.unlink(tmpFile).catch(() => {}); }, 10000);
+    } catch (_e) {
+      // Any failure in the temp-file path falls back to the direct write.
+      session.shell.write(command + '\n');
+    }
   }
 
   /**

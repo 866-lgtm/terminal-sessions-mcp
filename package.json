@@ -12,6 +12,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "test": "npm run build && node --test test/",
     "dev": "tsc --watch",
     "start": "node dist/src/server/start-session-server.js",
     "start-server": "ts-node src/server/start-session-server.ts",

@@ -16,3 +16,5 @@ node_modules/
 EXTRACTION_AND_ENHANCEMENT_SUMMARY.md
 CHANGELOG.md
 
+test/
+test-results/

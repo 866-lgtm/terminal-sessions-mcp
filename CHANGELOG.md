@@ -1,5 +1,36 @@
 # Changelog
 
+## v1.6.0 - 2026-07-11
+
+### Added
+
+- **Named keys for `sendInput`** ⌨️ - New `keys` parameter, tmux `send-keys`
+  style, so agents can drive TUIs (codex, vim, htop, ...): `Enter`, `Tab`,
+  `Shift-Tab`, `Esc`, `Space`, `Backspace`, `Delete`, arrows, `Home`/`End`,
+  `PageUp`/`PageDown`, `F1`-`F12`, `C-a`..`C-z` (Ctrl), `M-<char>` (Alt/Meta).
+  Raw control characters cannot pass through the MCP JSON tool layer, so named
+  keys are the supported way to send them. Unknown key names return an error
+  listing the valid vocabulary.
+- Unit tests for key decoding and input assembly (`npm test`, zero-dependency
+  `node --test`).
+
+### Changed
+
+- **`appendNewline` now appends `\r` (CR) instead of `\n` (LF)** - CR is what
+  a real Enter key sends; canonical-mode shells are unaffected (`icrnl` maps
+  CR to NL) and raw-mode TUIs now actually submit. If you were relying on a
+  literal trailing LF byte reaching a raw-mode program, pass
+  `appendNewline: false` and include `\n` in `input` yourself.
+- `appendNewline` defaults to **false** when `keys` is provided (the caller
+  controls the exact bytes); pass `true` explicitly to add Enter after keys.
+- `sendInput` failures now include the error message instead of a bare
+  `success: false`.
+
+### Notes
+
+- Already-running MCP bridge processes must be restarted to expose the new
+  `keys` parameter - an old bridge silently drops it (and reports success).
+
 ## v1.2.0 - 2024-11-09
 
 ### Added

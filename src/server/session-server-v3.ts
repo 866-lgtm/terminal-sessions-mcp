@@ -15,6 +15,7 @@ import { EventEmitter } from 'events';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { buildInputData } from './keys';
 
 interface SessionInfo {
   id: string;
@@ -489,45 +490,6 @@ export class PersistentSessionServer extends EventEmitter {
   }
 
   /**
-   * Named keys for sendInput's `keys` parameter (tmux send-keys style).
-   * Also supports C-a..C-z (Ctrl+letter) and M-<char> (Alt/Meta+char).
-   */
-  private static readonly NAMED_KEYS: Record<string, string> = {
-    'enter': '\r',
-    'tab': '\t',
-    'shift-tab': '\x1b[Z',
-    'esc': '\x1b',
-    'escape': '\x1b',
-    'space': ' ',
-    'backspace': '\x7f',
-    'delete': '\x1b[3~',
-    'up': '\x1b[A',
-    'down': '\x1b[B',
-    'right': '\x1b[C',
-    'left': '\x1b[D',
-    'home': '\x1b[H',
-    'end': '\x1b[F',
-    'pageup': '\x1b[5~',
-    'pagedown': '\x1b[6~',
-    'f1': '\x1bOP', 'f2': '\x1bOQ', 'f3': '\x1bOR', 'f4': '\x1bOS',
-    'f5': '\x1b[15~', 'f6': '\x1b[17~', 'f7': '\x1b[18~', 'f8': '\x1b[19~',
-    'f9': '\x1b[20~', 'f10': '\x1b[21~', 'f11': '\x1b[23~', 'f12': '\x1b[24~',
-  };
-
-  private decodeKey(name: string): string {
-    const k = name.toLowerCase();
-    const named = PersistentSessionServer.NAMED_KEYS[k];
-    if (named !== undefined) return named;
-    const ctrl = /^c-([a-z])$/.exec(k);
-    if (ctrl) return String.fromCharCode(ctrl[1].charCodeAt(0) - 96);
-    const meta = /^m-(.)$/i.exec(name);
-    if (meta) return `\x1b${meta[1]}`;
-    throw new Error(
-      `Unknown key '${name}'. Valid: ${Object.keys(PersistentSessionServer.NAMED_KEYS).join(', ')}, C-a..C-z, M-<char>`
-    );
-  }
-
-  /**
    * Send input to a session (for interactive programs).
    *
    * @param input   Literal text, sent verbatim.
@@ -537,6 +499,7 @@ export class PersistentSessionServer extends EventEmitter {
    *   Ignored (treated as false) when `keys` is provided, unless explicitly true.
    * @param keys    Optional named keys sent after the text, tmux send-keys
    *   style: Enter, Tab, Esc, Up/Down/Left/Right, Backspace, C-c, M-x, F1...
+   *   See src/server/keys.ts for decoding.
    */
   sendInput(sessionId: string, input: string, appendNewline?: boolean, keys?: string[]): void {
     const session = this.sessions.get(sessionId);
@@ -544,22 +507,15 @@ export class PersistentSessionServer extends EventEmitter {
       throw new Error(`Session ${sessionId} not available`);
     }
 
-    const hasKeys = !!(keys && keys.length > 0);
-    let dataToSend = input;
-    if (hasKeys) {
-      dataToSend += keys!.map(k => this.decodeKey(k)).join('');
-    }
-    // Default: append Enter — unless keys are given (caller controls exact
-    // bytes; only append if explicitly requested).
-    const shouldAppend = hasKeys ? appendNewline === true : appendNewline !== false;
-    if (shouldAppend) dataToSend += '\r';
+    const dataToSend = buildInputData(input, appendNewline, keys);
     session.shell.write(dataToSend);
     session.lastActivity = new Date();
 
+    const hasKeys = !!(keys && keys.length > 0);
     this.notify('session:input', {
       sessionId,
       input,
-      appendNewline: shouldAppend,
+      appendNewline: hasKeys ? appendNewline === true : appendNewline !== false,
       keys,
       timestamp: new Date()
     });

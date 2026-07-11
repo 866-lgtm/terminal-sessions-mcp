@@ -1,6 +1,10 @@
 // Terminal Sessions Web GUI Client
 
-const socket = io();
+// Extract token from URL query string
+const urlParams = new URLSearchParams(window.location.search);
+const authToken = urlParams.get('token');
+
+const socket = io({ query: { token: authToken } });
 let currentTerminal = null;
 let currentSession = null;
 const sessions = new Map();
@@ -17,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Load sessions list
 async function loadSessions() {
   try {
-    const response = await fetch('/api/sessions');
+    const response = await fetch(`/api/sessions?token=${authToken}`);
     const sessionsList = await response.json();
     
     const container = document.getElementById('sessions-list');
@@ -188,7 +192,7 @@ async function createTerminalView(sessionId) {
   
   // Load existing output
   try {
-    const response = await fetch(`/api/sessions/${sessionId}/output?lines=1000`);
+    const response = await fetch(`/api/sessions/${sessionId}/output?lines=1000&token=${authToken}`);
     const data = await response.json();
     
     if (data.output && Array.isArray(data.output)) {
@@ -308,7 +312,7 @@ async function createNewSession() {
   const cwd = cwdInput.value.trim() || undefined;
   
   try {
-    const response = await fetch('/api/sessions', {
+    const response = await fetch(`/api/sessions?token=${authToken}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: name, cwd })

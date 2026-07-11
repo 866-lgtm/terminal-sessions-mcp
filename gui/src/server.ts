@@ -33,8 +33,10 @@ export class WebGUIServer {
     });
 
     // Connect to session server (with token if provided)
-    this.sessionClient = new RobustSessionClient(SESSION_SERVER_URL, SESSION_SERVER_TOKEN);
+    // Prefer the token passed to constructor (from --token CLI arg), fall back to env var
+    this.sessionClient = new RobustSessionClient(SESSION_SERVER_URL, authToken || SESSION_SERVER_TOKEN);
 
+    this.setupStaticFiles();
     this.setupAuth();
     this.setupRoutes();
     this.setupSocketIO();
@@ -87,8 +89,8 @@ export class WebGUIServer {
     });
   }
 
-  private setupRoutes(): void {
-    // Serve static files - works for both ts-node and compiled versions
+  private setupStaticFiles(): void {
+    // Serve static files BEFORE auth middleware so JS/CSS can load
     // When ts-node: __dirname = .../terminal-sessions-mcp/gui/src
     // When compiled: __dirname = .../terminal-sessions-mcp/dist/gui/src
     const publicDir = __dirname.includes('/dist/')
@@ -96,7 +98,17 @@ export class WebGUIServer {
       : path.join(__dirname, '../public');           // ts-node version
     this.app.use(express.static(publicDir));
 
-    // API endpoints
+    // Main page (also before auth — the page itself is just HTML)
+    this.app.get('/', (req, res) => {
+      const indexPath = __dirname.includes('/dist/')
+        ? path.join(__dirname, '../../../gui/public/index.html')
+        : path.join(__dirname, '../public/index.html');
+      res.sendFile(indexPath);
+    });
+  }
+
+  private setupRoutes(): void {
+    // API endpoints (auth middleware runs before these)
     this.app.get('/api/sessions', async (req, res) => {
       try {
         const sessions = await this.sessionClient.listSessions();
@@ -131,13 +143,6 @@ export class WebGUIServer {
       }
     });
 
-    // Main page
-    this.app.get('/', (req, res) => {
-      const indexPath = __dirname.includes('/dist/')
-        ? path.join(__dirname, '../../../gui/public/index.html')  // Compiled version
-        : path.join(__dirname, '../public/index.html');           // ts-node version
-      res.sendFile(indexPath);
-    });
   }
 
   private setupSocketIO(): void {

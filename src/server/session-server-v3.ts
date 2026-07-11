@@ -124,6 +124,12 @@ export class PersistentSessionServer extends EventEmitter {
   private readonly exitCodeEnd = '>>>';
   private tempFileCounter = 0;
 
+  /**
+   * Auth token for the web GUI (same token as the session server).
+   * Used by takeScreenshot so its headless browser can authenticate.
+   */
+  guiAuthToken?: string;
+
   constructor() {
     super();
     // Clean up on exit
@@ -817,8 +823,9 @@ export class PersistentSessionServer extends EventEmitter {
           height
         });
         
-        // Navigate to the GUI
-        const guiUrl = `http://localhost:${guiPort}`;
+        // Navigate to the GUI (with auth token if the GUI requires one)
+        const tokenParam = this.guiAuthToken ? `?token=${encodeURIComponent(this.guiAuthToken)}` : '';
+        const guiUrl = `http://localhost:${guiPort}${tokenParam}`;
         await page.goto(guiUrl, { waitUntil: 'networkidle0', timeout: 10000 });
         
         // Wait for the session list to load

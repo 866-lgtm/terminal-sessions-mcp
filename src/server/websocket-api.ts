@@ -45,6 +45,8 @@ export class SessionAPI {
   constructor(port: number = 3100, host: string = 'localhost', authToken?: string) {
     this.authToken = authToken;
     this.server = new PersistentSessionServer();
+    // Let takeScreenshot authenticate against the (token-protected) web GUI
+    this.server.guiAuthToken = authToken;
     this.registerServerListener('session:created', (payload) => {
       this.pushEvent('session:created', payload, payload.sessionId);
     });

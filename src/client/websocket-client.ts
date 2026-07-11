@@ -254,8 +254,8 @@ export class RobustSessionClient extends EventEmitter {
     return this.request('service.start', params);
   }
   
-  async sendInput(sessionId: string, input: string, appendNewline?: boolean) {
-    return this.request('session.input', { sessionId, input, appendNewline });
+  async sendInput(sessionId: string, input: string, appendNewline?: boolean, keys?: string[]) {
+    return this.request('session.input', { sessionId, input, appendNewline, keys });
   }
   
   async sendSignal(sessionId: string, signal: string = 'SIGINT') {

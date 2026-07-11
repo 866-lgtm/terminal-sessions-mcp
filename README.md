@@ -146,7 +146,7 @@ Your AI assistant now has access to these MCP tools:
 - `runCommand` - Execute a command in a session
 - `tailLogs` - Get recent output from a session  
 - `searchLogs` - Search through output with regex
-- `sendInput` - Send input to interactive prompts
+- `sendInput` - Send input to interactive prompts (with named-key support for TUIs)
 - `sendSignal` - Send signals (Ctrl+C, etc.) to processes
 - `listSessions` - See all active sessions
 - `killSession` - Stop a session gracefully or forcefully
@@ -246,6 +246,35 @@ Once configured, your AI assistant will have access to these tools:
 ### Interactive Operations
 - **sendInput** - Send input to a running process
 - **sendSignal** - Send a signal (SIGINT, SIGTERM, etc)
+
+#### sendInput: text, Enter, and named keys
+
+`sendInput` sends the `input` text to the session PTY **verbatim**. Raw control
+characters cannot pass through the JSON tool layer, so special keys are
+expressed as **named keys** (tmux `send-keys` style) via the `keys` parameter:
+
+```jsonc
+// Type a message into a TUI composer, without submitting
+{ "session": "codex", "input": "Hello there", "appendNewline": false }
+
+// Press Enter (as a separate write — some TUIs treat text+CR in one
+// write as a paste and won't submit)
+{ "session": "codex", "input": "", "keys": ["Enter"] }
+
+// Ctrl+C, Escape, arrow keys...
+{ "session": "codex", "input": "", "keys": ["C-c"] }
+{ "session": "vim",   "input": "", "keys": ["Esc", "Down", "Down"] }
+```
+
+Supported key names (case-insensitive): `Enter`, `Tab`, `Shift-Tab`, `Esc`/`Escape`,
+`Space`, `Backspace`, `Delete`, `Up`, `Down`, `Left`, `Right`, `Home`, `End`,
+`PageUp`, `PageDown`, `F1`–`F12`, `C-a`..`C-z` (Ctrl+letter), `M-<char>` (Alt/Meta).
+Unknown key names return an error listing the valid vocabulary.
+
+`appendNewline` appends a carriage return (`\r`, what a real Enter key sends —
+correct for both canonical-mode shells and raw-mode TUIs). It defaults to
+**true** when `keys` is absent, and **false** when `keys` is given (the caller
+controls the exact bytes; pass `appendNewline: true` explicitly to add Enter).
 
 ### Log Operations
 - **tailLogs** - Get recent logs from a session

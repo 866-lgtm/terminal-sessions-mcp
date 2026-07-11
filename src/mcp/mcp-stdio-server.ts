@@ -95,13 +95,18 @@ const TOOLS = {
     }
   },
   sendInput: {
-    description: 'Send input to an interactive session',
+    description: 'Send input to an interactive session. Text is sent verbatim; use `keys` for special keys (Enter, Ctrl+C, arrows, ...) since raw control characters cannot pass through the JSON layer.',
     parameters: {
       type: 'object',
       properties: {
         session: { type: 'string' },
-        input: { type: 'string' },
-        appendNewline: { type: 'boolean', description: 'Append newline after input (default: true). Set to false for escape sequences.' }
+        input: { type: 'string', description: 'Literal text to type (can be empty when only sending keys)' },
+        keys: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Named keys sent after the text, tmux send-keys style: Enter, Tab, Shift-Tab, Esc, Space, Backspace, Delete, Up, Down, Left, Right, Home, End, PageUp, PageDown, F1-F12, C-a..C-z (Ctrl), M-<char> (Alt). E.g. ["Enter"] to submit in a TUI, ["C-c"] for Ctrl+C, ["Esc"] to dismiss.'
+        },
+        appendNewline: { type: 'boolean', description: 'Append Enter (\\r) after input. Default: true when `keys` is absent, false when `keys` is given.' }
       },
       required: ['session', 'input']
     }

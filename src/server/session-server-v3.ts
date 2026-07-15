@@ -144,8 +144,17 @@ export class PersistentSessionServer extends EventEmitter {
    * Create a new shell session
    */
   async createSession(id: string, options: { cwd?: string; env?: Record<string, string>; shell?: string } = {}): Promise<string> {
-    if (this.sessions.has(id)) {
-      throw new Error(`Session ${id} already exists`);
+    const existing = this.sessions.get(id);
+    if (existing) {
+      // A dead session record (shell exited, kept for log access) should not
+      // squat the name forever — "Session X already exists" for a corpse just
+      // strands agents in a not-alive/already-exists loop. Reap it and reuse.
+      if (!existing.isAlive) {
+        this.cleanupTempFiles(existing);
+        this.sessions.delete(id);
+      } else {
+        throw new Error(`Session ${id} already exists`);
+      }
     }
 
     const shell = options.shell || (process.platform === 'win32' ? 'wsl.exe' : '/bin/bash');
